@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFrameworks>net8.0;net472</TargetFrameworks>
+    <LangVersion>12</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <PackageId>ServiceFabric.CounterMetrics</PackageId>
+    <Description>Re-emits Service Fabric Reliable Services/Actors performance counters as System.Diagnostics.Metrics instruments.</Description>
+    <Authors>Mirco</Authors>
+    <PackageTags>service-fabric;opentelemetry;metrics;performance-counters</PackageTags>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageProjectUrl>https://github.com/mircodz/ServiceFabric.CounterMetrics</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/mircodz/ServiceFabric.CounterMetrics</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.ServiceFabric" Version="10.1.3033" />
+    <PackageReference Include="System.Diagnostics.PerformanceCounter" Version="8.0.1" />
+    <PackageReference Include="System.Diagnostics.DiagnosticSource" Version="8.0.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Remove="tests/**/*.cs" />
+    <InternalsVisibleTo Include="ServiceFabric.CounterMetrics.Tests" />
+    <None Remove="README.md;LICENSE" />
+    <None Include="README.md;LICENSE" Pack="true" PackagePath="/" />
+  </ItemGroup>
+
+</Project>

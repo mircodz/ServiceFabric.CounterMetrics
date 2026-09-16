@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-pack:
+    runs-on: windows-latest
+    env:
+      PROJECT: ServiceFabric.CounterMetrics.csproj
+      OUT_DIR: artifacts/nupkg
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Restore
+        run: dotnet restore $env:PROJECT
+
+      - name: Build
+        run: dotnet build $env:PROJECT --no-restore --configuration Release
+
+      - name: Test
+        run: dotnet test tests/ServiceFabric.CounterMetrics.Tests/ServiceFabric.CounterMetrics.Tests.csproj --configuration Release
+
+      - name: Pack
+        run: dotnet pack $env:PROJECT --no-build --configuration Release --output $env:OUT_DIR
+
+      - name: Upload packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: packages
+          path: artifacts/nupkg/*
+          if-no-files-found: error
+          retention-days: 14

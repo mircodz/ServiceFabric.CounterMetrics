@@ -1,0 +1,95 @@
+name: Publish NuGet
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-nuget
+  cancel-in-progress: false
+
+jobs:
+  pack-and-push:
+    if: github.repository == 'mircodz/ServiceFabric.CounterMetrics' && github.actor == 'mircodz'
+    environment: publish
+    runs-on: windows-latest
+    permissions:
+      contents: read
+      id-token: write
+      packages: write
+    env:
+      PROJECT: ServiceFabric.CounterMetrics.csproj
+      OUT_DIR: artifacts/nupkg
+      OWNER: ${{ github.repository_owner }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Ensure matching release tag
+        shell: pwsh
+        run: |
+          $version = (Get-Content version -Raw).Trim()
+          if ($version -notmatch '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$') {
+            throw "The version file must use numeric X.Y.Z format."
+          }
+          if ($env:GITHUB_REF_TYPE -ne 'tag' -or $env:GITHUB_REF_NAME -cne "v$version") {
+            throw "Run this workflow on tag v$version, matching the version file."
+          }
+          git merge-base --is-ancestor HEAD origin/main
+          if ($LASTEXITCODE -ne 0) {
+            throw "The release tag must point to a commit on main."
+          }
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Restore
+        run: dotnet restore $env:PROJECT
+
+      - name: Build
+        run: dotnet build $env:PROJECT --no-restore --configuration Release
+
+      - name: Test
+        run: dotnet test tests/ServiceFabric.CounterMetrics.Tests/ServiceFabric.CounterMetrics.Tests.csproj --configuration Release
+
+      - name: Pack
+        run: dotnet pack $env:PROJECT --no-build --configuration Release --output $env:OUT_DIR
+
+      - name: Upload packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-packages
+          path: artifacts/nupkg/*
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: NuGet login
+        id: nuget_login
+        uses: NuGet/login@v1
+        with:
+          user: ${{ secrets.NUGET_USER }}
+
+      - name: Push to NuGet.org
+        env:
+          NUGET_API_KEY: ${{ steps.nuget_login.outputs.NUGET_API_KEY }}
+        run: >-
+          dotnet nuget push "$env:OUT_DIR/*.nupkg"
+          --source https://api.nuget.org/v3/index.json
+          --api-key "$env:NUGET_API_KEY"
+          --skip-duplicate
+
+      - name: Push to GitHub Packages
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: >-
+          dotnet nuget push "$env:OUT_DIR/*.nupkg"
+          --source "https://nuget.pkg.github.com/$env:OWNER/index.json"
+          --api-key "$env:GITHUB_TOKEN"
+          --no-symbols
+          --skip-duplicate

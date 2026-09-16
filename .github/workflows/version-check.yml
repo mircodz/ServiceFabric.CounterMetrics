@@ -1,0 +1,57 @@
+name: Version check
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '**/*.cs'
+      - '**/*.csproj'
+      - 'Directory.Build.props'
+      - 'version'
+      - '!tests/**'
+
+permissions:
+  contents: read
+
+jobs:
+  version-bumped:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Ensure version was bumped
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+          HEAD_VERSION="$(tr -d '\r' < version)"
+          VERSION_PATTERN='^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'
+
+          if [[ ! "$HEAD_VERSION" =~ $VERSION_PATTERN ]]; then
+            echo "::error file=version::Use a numeric version in X.Y.Z format."
+            exit 1
+          fi
+
+          git cat-file -e "${BASE_SHA}^{commit}"
+          if ! git cat-file -e "${BASE_SHA}:version" 2>/dev/null; then
+            echo "Initial package version: $HEAD_VERSION"
+            exit 0
+          fi
+
+          BASE_VERSION="$(git show "${BASE_SHA}:version" | tr -d '\r')"
+          if [[ ! "$BASE_VERSION" =~ $VERSION_PATTERN ]]; then
+            echo "::error file=version::The base version must use numeric X.Y.Z format."
+            exit 1
+          fi
+
+          GREATER="$(printf '%s\n%s\n' "$BASE_VERSION" "$HEAD_VERSION" | sort -V | tail -n1)"
+          if [[ "$HEAD_VERSION" == "$BASE_VERSION" || "$GREATER" != "$HEAD_VERSION" ]]; then
+            echo "::error file=version::Library changed; bump 'version' above $BASE_VERSION."
+            exit 1
+          fi
+
+          echo "Version: $BASE_VERSION -> $HEAD_VERSION"

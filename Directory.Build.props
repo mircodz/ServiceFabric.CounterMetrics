@@ -1,0 +1,7 @@
+<Project>
+  <PropertyGroup>
+    <VersionFile>$(MSBuildThisFileDirectory)version</VersionFile>
+    <Version>$([System.IO.File]::ReadAllText('$(VersionFile)').Trim())</Version>
+    <ContinuousIntegrationBuild Condition="'$(GITHUB_ACTIONS)' == 'true'">true</ContinuousIntegrationBuild>
+  </PropertyGroup>
+</Project>
